@@ -11,7 +11,18 @@ app.use(express.json());
 app.use(cors());
 
 //connecting with mongodb
-mongoose.connect("mongodb+srv://abcde:2YmNVlow1T5hbbg6@cluster0.vk7ij4t.mongodb.net/crud")
+
+mongoose.connect("mongodb+srv://abcde:2YmNVlow1T5hbbg6@cluster0.vk7ij4t.mongodb.net/crud", {
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+})
+.then(() => {
+  console.log("✅ Your MongoDB is connected successfully!");
+})
+.catch((err) => {
+  console.error("❌ MongoDB connection failed: ", err.message);
+});
+
 
 
 
@@ -129,7 +140,85 @@ app.get('/allproducts',async(req,res)=>{
 })
 
 
+//Creating Schema for user model
 
+const Users = mongoose.model('Users', {
+    name: {
+        type: String,
+        required: true
+    },
+    email: {
+        type: String,
+        unique: true,
+        required: true
+    },
+    password: {
+        type: String,
+        required: true
+    },
+    CartData: {
+        type: Object,
+        default: {}
+    },
+    date: {
+        type: Date,
+        default: Date.now
+    }
+});
+
+
+
+//creating endpoint for user registration
+app.post('/signup',async(req,res)=>{
+    let check=await Users.findOne({email:req.body.email});
+    if(check){
+        return res.status(400).json({success:false,errors:"This email id already exists"});
+     }
+    let cart={};
+    for(let i=0;i<300;i++){
+        cart[i]=0;
+    }
+    const user=new Users({
+        name:req.body.username,
+        email:req.body.email,
+        password:req.body.password,
+        CartData:cart,
+    })
+
+    await user.save();
+
+    const data={
+        user:{
+            id:user.id
+        }
+    }
+
+    const token=jwt.sign(data,'secret_ecom');
+    res.json({success:true,token})
+})
+
+//creating endpoint for user login
+app.post('/login',async(req,res)=>{
+    let user=await Users.findOne({email:req.body.email});
+    if(user){
+        const passCompare=req.body.password===user.password;
+        if(passCompare){
+            const data={
+                user:{
+                    id:user.id
+                }
+            }
+            const token =jwt.sign(data,'secret_ecom');
+            res.json({success:true,token});
+        }
+        else{
+            res.json({success:false,errors:"Wrong Password"});
+        }
+    }
+    else{
+        res.json({success:false,errors:"User does not exist"})
+    }
+})
 
 
 app.listen(port,(error)=>{
